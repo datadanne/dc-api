@@ -17,7 +17,6 @@ export class FarcasterRoute implements Routes {
     this.router.get(`${this.path}/tree`, this.farcaster.getTree);
     this.router.get(`${this.path}/warpcast/:id`, this.farcaster.getCastByWarpcastLink);
     this.router.get(`${this.path}/id/:id`, this.farcaster.getMessageById);
-    this.router.options(`${this.path}/farcaster_hash/:farcaster_hash`, (req,res) => res.json({ ok: true }));
     this.router.get(`${this.path}/farcaster_hash/:farcaster_hash`, this.farcaster.getMessageByFarcasterHash);
     this.router.get(`${this.path}/whitelist`, this.farcaster.getWhitelist);
 
