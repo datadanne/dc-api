@@ -48,7 +48,7 @@ export class MessageService {
       params,
       {
         headers: {
-          api_key: NEYNAR_TOKEN,   
+          api_key: NEYNAR_TOKEN,
         },
       },
     );
@@ -77,13 +77,13 @@ export class MessageService {
       },
     );
 
-    return cast; 
+    return cast;
   }
 
   public async createMessage(
     messageData: CreateMessageDto,
     state: Tree
-  ): Promise<Message> {
+  ): Promise<{ farcaster_hash: any, timestamp: string, reply_to: string }> {
     const inputs = extractData(messageData.publicInputs);
 
     logger.info(`New cast: ${JSON.stringify(inputs)}`);
@@ -104,11 +104,11 @@ export class MessageService {
     }
 
     // Check message does not exists yet
-    const findMessage: Message = await MessageModel.query()
-      .select().from('messages')
-      .where('text', '=', inputs.text).first();
+    // const findMessage: Message = await MessageModel.query()
+    //   .select().from('messages')
+    //   .where('text', '=', inputs.text).first();
 
-    if (findMessage) throw new HttpException(409, `This message already exists`);
+    // if (findMessage) throw new HttpException(409, `This message already exists`);
 
     // Verify proof
     // @ts-ignore
@@ -135,21 +135,26 @@ export class MessageService {
     // Cast message
     const farcaster_hash = await this.cast(inputs.text, inputs.replyTo, messageData.channel);
 
-    const createMessageData: Message = await MessageModel.query()
-      .insert({
-        id: uuidv4(),
-        timestamp: new Date(inputs.timestamp * 1000).toISOString(),
-        text: inputs.text,
-        version: MESSAGE_VERSION,
-        proof: {
-          proof: messageData.proof,
-          publicInputs: messageData.publicInputs
-        },
-        reply_to: inputs.replyTo,
-        farcaster_hash,
-      }).into('messages');
+    // const createMessageData: Message = await MessageModel.query()
+    //   .insert({
+    //     id: uuidv4(),
+    //     timestamp: new Date(inputs.timestamp * 1000).toISOString(),
+    //     text: inputs.text,
+    //     version: MESSAGE_VERSION,
+    //     proof: {
+    //       proof: messageData.proof,
+    //       publicInputs: messageData.publicInputs
+    //     },
+    //     reply_to: inputs.replyTo,
+    //     farcaster_hash,
+    //   }).into('messages');
 
-    return createMessageData;
+    // return createMessageData;
+    return {
+      timestamp: new Date(inputs.timestamp * 1000).toISOString(),
+      reply_to: inputs.replyTo,
+      farcaster_hash,
+    };
   }
 
   public async findMessageById(

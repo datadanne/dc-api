@@ -13,18 +13,15 @@ const whitelist = JSON.parse(FARCASTER_WHITELISTED_FIDS);
 
 export class FarcasterController {
   public message = Container.get(MessageService);
-  public tree = new MerkleTreeWorker(
-    RPC,
-    FARCASTER_KEY_REGISTRY_ADDRESS as `0x${string}`,
-    [
-      ...new Set([
-        ...Array(20_000).keys(),
-        ...whitelist
-      ])
-    ].map(e => BigInt(e)),
-  );
+  public tree: MerkleTreeWorker;
 
-  public initialize() {
+
+  public initialize(fids: bigint[]) {
+    this.tree = new MerkleTreeWorker(
+      RPC,
+      FARCASTER_KEY_REGISTRY_ADDRESS as `0x${string}`,
+      fids,
+    );
     this.tree.initialize();
   }
 
@@ -58,7 +55,7 @@ export class FarcasterController {
       FARCASTER_MNEMONIC,
       fid
     );
-  
+
     res.status(200).json({
       deadline,
       signature,

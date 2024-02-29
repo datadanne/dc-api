@@ -24,6 +24,7 @@
     "node": "18.x"
   },
   "dependencies": {
+    "@airstack/node": "^0.0.5",
     "@farcaster/hub-nodejs": "^0.10.17",
     "@noir-lang/backend_barretenberg": "^0.17.0",
     "@noir-lang/noir_js": "^0.17.0",

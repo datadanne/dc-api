@@ -1,4 +1,4 @@
-import { createPublicClient, http, parseAbiItem } from 'viem'
+import { Client, PublicClient, createPublicClient, http, parseAbiItem } from 'viem'
 import { optimism } from 'viem/chains'
 import { logger } from '@/utils/logger';
 import { KEY_REGISTRY_ADD_EVENT_SIGNATURE } from '@/utils/constants';
@@ -18,7 +18,7 @@ type LogEntry = {
 };
 
 
-function sortLogEntries(logEntries: LogEntry[]) {
+function sortLogEntries<T extends LogEntry>(logEntries: T[]) {
   return logEntries.sort((a, b) => {
       if (a.blockNumber !== b.blockNumber) {
           return a.blockNumber < b.blockNumber ? -1 : 1;
@@ -32,14 +32,13 @@ function sortLogEntries(logEntries: LogEntry[]) {
 
 
 export class MerkleTreeWorker {
-  private client;
+  private client: PublicClient;
   private key_registry_address: `0x${string}`;
   private fids: bigint[];
   private getlogs_batch_size: bigint;
 
   private last_block: bigint = 0n;
 
-  // @ts-ignore
   private tree: MerkleTreeMiMC;
   private elements: TreeElement[] = [];
   private state: Tree;
@@ -85,7 +84,7 @@ export class MerkleTreeWorker {
 
     const fid_chunks = _.chunk(this.fids, 1000);
 
-    const unsorted_logs = [];
+    const unsorted_logs: Awaited<ReturnType<typeof this.syncLogs>> = [];
 
     for (const [fid_chunk_id, fid_chunk] of fid_chunks.entries()) {
       const chunk_logs = await this.syncLogs(fid_chunk, 0n, end_block);
@@ -99,8 +98,7 @@ export class MerkleTreeWorker {
 
     logger.info(`Got ${logs.length} bootrstap logs`);
 
-    // @ts-ignore
-    for (const [i, { args: { fid, keyBytes: key }, ...log }] of logs.entries()) {
+    for (const [i, { args: { fid, keyBytes: key } }] of logs.entries()) {
       this.addElement({
         fid: parseInt(fid.toString()),
         key
@@ -144,26 +142,28 @@ export class MerkleTreeWorker {
     setTimeout(async () => {
       const end_block = await this.getLatestBlock();
 
-      const logs = await this.syncLogs(
-        this.fids,
-        this.last_block + 1n,
-        end_block,
-      );
+      if (end_block > this.last_block) {
+        const logs = await this.syncLogs(
+          this.fids,
+          this.last_block + 1n,
+          end_block,
+        );
 
-      if (logs.length > 0) {
-        logger.info(`Got ${logs.length} logs`);
+        if (logs.length > 0) {
+          logger.info(`Got ${logs.length} logs`);
 
-        for (const { args: { fid, keyBytes: key }, ...log } of logs) {
-          this.addElement({
-            fid: parseInt(fid.toString()),
-            key
-          });
+          for (const { args: { fid, keyBytes: key } } of logs) {
+            this.addElement({
+              fid: parseInt(fid.toString()),
+              key
+            });
+          }
+
+          this.updateState();
         }
-    
-        this.updateState();
-      }
 
-      this.last_block = end_block;
+        this.last_block = end_block;
+      }
 
       this.subscribeToLogs();
     }, 5000);
@@ -174,13 +174,6 @@ export class MerkleTreeWorker {
     start_block: bigint,
     end_block: bigint,
   ) {
-    const intervals = createIntervals(
-      // this.last_block + 1n,
-      start_block,
-      end_block,
-      this.getlogs_batch_size
-    );
-
     const logs = await this.client.getLogs({
       address: this.key_registry_address,
       args: {
@@ -203,6 +196,7 @@ export class MerkleTreeWorker {
   private addElement(element: TreeElement) {
     this.elements.push(element);
 
+    // NOTE: this creates a MiMC7 hash of [fid, key]
     const commitment = MiMC7(
       this.tree.mimc7,
       element.fid.toString(16).replace('0x', ''),
@@ -215,15 +209,4 @@ export class MerkleTreeWorker {
   getState() {
     return this.state;
   }
-}
-
-
-function createIntervals(start: bigint, end: bigint, interval: bigint): [bigint, bigint][] {
-  let intervals: [bigint, bigint][] = [];
-  for (let current = start; current < end; current += interval) {
-    let next = current + interval;
-    if (next > end) next = end;
-    intervals.push([current, next]);
-  }
-  return intervals;
 }
